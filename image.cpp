@@ -28,9 +28,9 @@ bool Image<Color>::Save(const std::string &filename) const {
   for (int y = height-1; y >= 0; y--) {
     for (int x=0; x<width; x++) {
       Color v = GetPixel(x,y);
-      fputc ((unsigned char)(v.r),file);
-      fputc ((unsigned char)(v.g),file);
-      fputc ((unsigned char)(v.b),file);
+      fputc(v.red,   file);
+      fputc(v.green, file);
+      fputc(v.blue,  file);
     }
   }
   fclose(file);
@@ -67,9 +67,9 @@ bool Image<Color>::Load(const std::string &filename) {
   for (int y = height-1; y >= 0; y--) {
     for (int x = 0; x < width; x++) {
       Color c;
-      c.r = fgetc(file);
-      c.g = fgetc(file);
-      c.b = fgetc(file);
+      c.red   = fgetc(file);
+      c.green = fgetc(file);
+      c.blue  = fgetc(file);
       SetPixel(x,y,c);
     }
   }

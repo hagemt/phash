@@ -7,19 +7,26 @@
 
 // ====================================================================
 // 24 bit color pixel
-class Color {
-public:
-  Color(unsigned char red=255, unsigned char green=255, unsigned char blue=255) : r(red),g(green),b(blue) {}
-  bool isWhite() const { return r==255 && g==255 && b==255; }
-  unsigned char r,g,b;
+struct Color {
+	unsigned char red, green, blue;
+	explicit Color(
+			unsigned char r = 255,
+			unsigned char g = 255,
+			unsigned char b = 255) :
+		red(r), green(g), blue(b) { }
+	bool operator==(const Color &c) const {
+		return (red == c.red && green == c.green && blue == c.blue);
+	}
 };
 
 // ====================================================================
 // 8 bit offset (dx = 4 bits, dy = 4 bits)
-class Offset {
-public:
-  Offset(unsigned char dx_=0, unsigned char dy_=0) : dx(dx_),dy(dy_) {}
-  unsigned char dx, dy;
+struct Offset {
+	unsigned char dx, dy;
+	explicit Offset(
+			unsigned char x = 0,
+			unsigned char y = 0) :
+		dx(x), dy(y) { }
 };
 
 
