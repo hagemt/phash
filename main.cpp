@@ -3,18 +3,18 @@
 #include <utility>
 #include <vector>
 
-#if 1
+#if __cplusplus == 199711L
 #include <tr1/unordered_set>
-#else
+#else // C++11?
 #include <unordered_set>
-#endif
+#endif // C++
 
 #include "image.h"
 
 namespace std {
-#if 1
+#if __cplusplus == 199711L
 namespace tr1 {
-#endif
+#endif // C++
 template<> struct hash<Color> {
 	typedef Color argument_type;
 	typedef std::size_t result_type;
@@ -23,19 +23,20 @@ template<> struct hash<Color> {
 		return val;
 	}
 };
-#if 1
+#if __cplusplus == 199711L
 } // namespace tr1
-#endif
+#endif // C++
 } // namespace std
 
 // ============================================================================
 // ============================================================================
 
-#if 1
+typedef std::vector<int> ROW;
+#if __cplusplus == 199711L
 typedef std::tr1::unordered_set<Color> BUCKET;
-#else
+#else // C++11?
 typedef std::unordered_set<Color> BUCKET;
-#endif
+#endif // C++
 static const Color WHITE(255, 255, 255);
 static const Offset ZERO(0, 0);
 
@@ -47,7 +48,7 @@ TryCompress(
 {
 	assert(hash);
 	/* Track hits into the offset table */
-	std::vector<std::vector<int> > hits(s_offset, std::vector<int>(s_offset, 0));
+	std::vector<ROW> hits(s_offset, ROW(s_offset, 0));
 	/* Run the hashing as currently offset */
 	int w = input.Width();
 	int h = input.Height();
