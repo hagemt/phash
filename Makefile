@@ -17,25 +17,21 @@ clean:
 	@$(RM) car_test.* car_diff.pbm
 	@$(RM) test.* _.*
 
-changes:
-	@$(SAY) "Comparing current main.cpp with provided..."
-	@$(DIFF) main.cpp cutler.cpp || true
-
 test: hw9
 	./hw9 compress   car_original.ppm test.pbm test.ppm test.offset
 	./hw9 uncompress test.pbm test.ppm test.offset car_test.ppm
 	./hw9 compare    car_original.ppm car_test.ppm car_diff.pbm
-	convert car_test.ppm car_test.png && eog car_test.png
+	convert          car_test.ppm car_test.png && eog car_test.png
 	./hw9 uncompress car_occupancy.pbm car_hash_data.ppm car_offset.offset _.ppm
 	./hw9 compare    car_original.ppm _.ppm _.pbm
-	convert _.ppm _.png && eog _.png
+	convert          _.ppm _.png && eog _.png
 
-.PHONY: all changes clean test
+.PHONY: all clean test
 
 hw9: image.o main.o
-	@$(SAY) "LD   $@"
+	@$(SAY) "LINK $@"
 	@$(CXX) $(CXXFLAGS) *.o -o $@
 
 %.o: %.cpp
-	@$(SAY) "CC   $<"
+	@$(SAY) "CCXX $<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
