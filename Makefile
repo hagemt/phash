@@ -14,19 +14,26 @@ clean:
 	@$(RM) *.pch *.gch
 	@$(RM) *.o hw9
 	@$(SAY) "Cleaning up temporary test results..."
-	@$(RM) car_test.* car_diff.pbm
+	@$(RM) chair_test.* chair_diff.pbm
 	@$(RM) test.* _.*
 
-test: hw9
-	./hw9 compress   car_original.ppm test.pbm test.ppm test.offset
-	./hw9 uncompress test.pbm test.ppm test.offset car_test.ppm
-	./hw9 compare    car_original.ppm car_test.ppm car_diff.pbm
-	convert          car_test.ppm car_test.png && eog car_test.png
-	./hw9 uncompress car_occupancy.pbm car_hash_data.ppm car_offset.offset _.ppm
-	./hw9 compare    car_original.ppm _.ppm _.pbm
-	convert          _.ppm _.png && eog _.png
+test_compress: hw9
+	@$(SAY) "Testing deflate..."
+	./hw9 compress chair.ppm test.pbm test.ppm test.offset
+	@#du -bc chair.ppm && du -bc test.*
+	./hw9 uncompress test.pbm test.ppm test.offset chair_test.ppm
+	./hw9 compare chair.ppm chair_test.ppm chair_diff.pbm
+	@#convert chair_test.ppm chair_test.png && eog chair_test.png
 
-.PHONY: all clean test
+test_uncompress: hw9
+	@$(SAY) "Testing inflate..."
+	./hw9 uncompress car_occupancy.pbm car_hash_data.ppm car_offset.offset _.ppm
+	./hw9 compare car_original.ppm _.ppm _.pbm
+	@#convert _.ppm _.png && eog _.png
+
+test: test_uncompress test_compress
+
+.PHONY: all clean test test_compress test_uncompress
 
 hw9: image.o main.o
 	@$(SAY) "LINK $@"
