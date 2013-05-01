@@ -8,6 +8,7 @@
 #define FMT(X) std::right << std::setw(42) << X
 #define PCT(X) std::fixed << std::setprecision(2) << FMT(X) * 100. << "%"
 #endif
+#define SQ(X) (X * X)
 
 #if __cplusplus == 199711L
 #include <tr1/unordered_set>
@@ -38,15 +39,14 @@ template<> struct hash<Color> {
 // ============================================================================
 
 /* Some useful definitions and helpers */
-typedef std::vector<int> ROW;
 #if __cplusplus == 199711L
 typedef std::tr1::unordered_set<Color> BUCKET;
 #else // C++11?
 typedef std::unordered_set<Color> BUCKET;
 #endif // C++
+typedef std::vector<int> ROW;
 static const Color WHITE(255, 255, 255);
 static const Offset ZERO(0, 0);
-#define SQ(X) (X * X)
 
 static int
 Try(
@@ -146,8 +146,9 @@ Compress(
 	}
 	/* These are some simple constraints */
 	int s_hash, s_offset, size = w * h;
-	s_hash = (int) ceil(sqrt((double) p * 1.01));
-	s_offset = (int) ceil(sqrt((double) p) / 2.0);
+	s_hash = static_cast<int>(ceil(sqrt(static_cast<double>(p) * 1.01)));
+	s_offset = static_cast<int>(ceil(sqrt(static_cast<double>(p) / 4.)));
+	int s_offset_i = s_offset, t = 0;
 	/* These will contain intermediate data */
 	std::pair<int, int> max;
 	BUCKET *colors = NULL;
@@ -157,7 +158,8 @@ Compress(
 		offset.Allocate(s_offset, s_offset);
 		offset.SetAllPixels(ZERO);
 		/* If compression grows larger than the source, fail */
-		if (s_hash < s_offset || size < SQ(s_hash) || size < SQ(s_offset)) {
+		if (24 * size < 24 * SQ(s_hash) + 8 * SQ(s_offset) + size) {
+			// FIXME what about limit of offset storage type?
 			std::cerr << "No perfect hash-function exists!" << std::endl;
 			hash_data.Allocate(s_hash, s_hash);
 			hash_data.SetAllPixels(WHITE);
@@ -167,13 +169,17 @@ Compress(
 			Reset(colors); break;
 		}
 		/* Try all offset values to locate a collision-free hash */
-		for (int i = 0; i < s_offset; ++i) {
-			for (int j = 0; j < s_offset; ++j) {
+		for (int i = 1; i <= s_offset; ++i) {
+			for (int j = 1; j <= s_offset; ++j) {
 				Reset(colors, new BUCKET[SQ(s_hash)]);
 				/* Attempt to perform a hash using the current offsets */
 				if (Try(input, offset, colors, s_hash, max)) {
 					if (i == 0 && j == 0) continue;
-					offset.SetAllPixels(Offset(i, j));
+					for (int oi = 0; oi < s_offset; ++oi) {
+						for (int oj = 0; oj < s_offset; ++oj) {
+							offset.SetPixel(oi, oj, Offset(oi % i, oj % j));
+						}
+					}
 					// TODO use max to just increment the offset positions
 					offset.SetPixel(max.first, max.second, ZERO);
 				} else {
@@ -208,12 +214,15 @@ Compress(
 					std::cout << "realistic:  " << PCT(real_ratio) << std::endl;
 					#endif
 					return;
-				}
+				} ++t;
 			}
 		}
-		/* Rehash with larger offset */
+		/* Rehash with larger offset, or hash as necessary */
 		++s_offset;
-		//++s_hash; // FIXME and hash?
+		if (s_hash < s_offset) {
+			++s_hash;
+			++s_offset = s_offset_i;
+		}
 	}
 }
 
