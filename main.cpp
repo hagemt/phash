@@ -3,6 +3,12 @@
 #include <utility>
 #include <vector>
 
+#ifndef NDEBUG
+#include <iomanip>
+#define FMT(X) std::right << std::setw(42) << X
+#define PCT(X) std::fixed << std::setprecision(2) << FMT(X) * 100. << "%"
+#endif
+
 #if __cplusplus == 199711L
 #include <tr1/unordered_set>
 #else // C++11?
@@ -155,8 +161,10 @@ Compress(
 			std::cerr << "No perfect hash-function exists!" << std::endl;
 			hash_data.Allocate(s_hash, s_hash);
 			hash_data.SetAllPixels(WHITE);
-			Reset(colors);
-			return;
+			#ifndef NDEBUG
+			std::cout << "Attempts made: " << t << std::endl;
+			#endif
+			Reset(colors); break;
 		}
 		/* Try all offset values to locate a collision-free hash */
 		for (int i = 0; i < s_offset; ++i) {
@@ -169,10 +177,36 @@ Compress(
 					// TODO use max to just increment the offset positions
 					offset.SetPixel(max.first, max.second, ZERO);
 				} else {
-					// TODO are we really done?
 					hash_data.Allocate(s_hash, s_hash);
 					hash_data.SetAllPixels(WHITE);
 					Fill(input, offset, colors, hash_data);
+					#ifndef NDEBUG
+					// TODO are we really done?
+					int bits_in, bits_mask, bits_hash, bits_offs, bits_out;
+					bits_in   = 8 * sizeof(Color)  * size;
+					bits_mask = 8 * sizeof(bool)   * size;
+					bits_hash = 8 * sizeof(Color)  * SQ(s_hash);
+					bits_offs = 8 * sizeof(Offset) * SQ(s_offset);
+					bits_out  = bits_mask + bits_hash + bits_offs;
+					int bits_opt1 = bits_mask + 8 * sizeof(Color) * p;
+					int bits_opt2 = bits_opt1 + 8 * sizeof(Offset) * SQ(s_offset_i);
+					std::cout << "Space used: (in bits)" << std::endl;
+					std::cout << "input:      " << FMT(bits_in)   << std::endl;
+					std::cout << "w/o blanks: " << FMT(bits_opt1) << std::endl;
+					std::cout << "w/ offset': " << FMT(bits_opt2) << std::endl;
+					std::cout << "occupancy:  " << FMT(bits_mask) << std::endl;
+					std::cout << "hash_data:  " << FMT(bits_hash) << std::endl;
+					std::cout << "offset:     " << FMT(bits_offs) << std::endl;
+					std::cout << "total:      " << FMT(bits_out)  << std::endl;
+					double comp_ratio, best_ratio, real_ratio;
+					comp_ratio = static_cast<double>(bits_out) / bits_in;
+					best_ratio = static_cast<double>(bits_opt1) / bits_in;
+					real_ratio = static_cast<double>(bits_opt2) / bits_in;
+					std::cout << "Compression ratios:" << std::endl;
+					std::cout << "achieved:   " << PCT(comp_ratio) << std::endl;
+					std::cout << "optimal:    " << PCT(best_ratio) << std::endl;
+					std::cout << "realistic:  " << PCT(real_ratio) << std::endl;
+					#endif
 					return;
 				}
 			}
