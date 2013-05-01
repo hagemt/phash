@@ -31,6 +31,7 @@ template<> struct hash<Color> {
 // ============================================================================
 // ============================================================================
 
+/* Some useful definitions and helpers */
 typedef std::vector<int> ROW;
 #if __cplusplus == 199711L
 typedef std::tr1::unordered_set<Color> BUCKET;
@@ -39,45 +40,81 @@ typedef std::unordered_set<Color> BUCKET;
 #endif // C++
 static const Color WHITE(255, 255, 255);
 static const Offset ZERO(0, 0);
+#define SQ(X) (X * X)
 
 static int
-TryCompress(
+Try(
 		const Image<Color> &input, const Image<Offset> &offset,
-		const int s_offset, const int s_hash,
-		BUCKET *hash, std::pair<int, int> &most)
+		BUCKET *hash, const int s_hash, std::pair<int, int> &loc)
 {
+	int iw, ih, ow, oh, mode, collisions = 0;
 	assert(hash);
+	iw = input.Width();
+	ih = input.Height();
+	ow = offset.Width();
+	oh = offset.Height();
 	/* Track hits into the offset table */
-	std::vector<ROW> hits(s_offset, ROW(s_offset, 0));
+	std::vector<ROW> hits(ow, ROW(oh, 0));
 	/* Run the hashing as currently offset */
-	int w = input.Width();
-	int h = input.Height();
-	int mode, collisions = 0;
-	for (int x = 0; x < w; ++x) {
-		for (int y = 0; y < h; ++y) {
+	std::pair<int, int> xy;
+	for (int x = 0; x < iw; ++x) {
+		for (int y = 0; y < ih; ++y) {
 			Color c = input.GetPixel(x, y);
 			if (!(c == WHITE)) {
 				/* Lookup where this falls in offset */
-				int ox = x % s_offset;
-				int oy = y % s_offset;
-				if (++hits[ox][oy] > mode) {
-					mode = hits[ox][oy];
-					most.first = ox;
-					most.second = oy;
+				xy = std::make_pair(x % ow, y % oh);
+				if (++hits[xy.first][xy.second] > mode) {
+					mode = hits[xy.first][xy.second];
+					loc = xy;
 				}
 				/* Use this offset to hash */
-				Offset o = offset.GetPixel(ox, oy);
-				int hx = (x + o.dx) % s_hash;
-				int hy = (y + o.dy) % s_hash;
-				BUCKET *bucket = &hash[hx * s_hash + hy];
-				if (!bucket->empty()) {
-					++collisions;
-				}
+				Offset o = offset.GetPixel(xy.first, xy.second);
+				xy = std::make_pair((x + o.dx) % s_hash, (y + o.dy) % s_hash);
+				BUCKET *bucket = &hash[xy.first * s_hash + xy.second];
+				/* Mark any collisions */
+				if (!bucket->empty()) ++collisions;
 				bucket->insert(c);
 			}
 		}
 	}
 	return collisions;
+}
+
+static void
+Reset(BUCKET *&c, BUCKET *d = NULL)
+{
+	if (c) delete[] c;
+	c = d;
+}
+
+static void
+Fill(
+		const Image<Color> &input,
+		const Image<Offset> &offset,
+		const BUCKET *temp_data,
+		Image<Color> &hash_data)
+{
+	int ih, iw, ow, oh, hw, hh;
+	iw = input.Width();
+	ih = input.Height();
+	ow = offset.Width();
+	oh = offset.Height();
+	hw = hash_data.Width();
+	hh = hash_data.Height();
+	/* Set the pixels to their final state */
+	std::pair<int, int> xy;
+	for (int x = 0; x < iw; ++x) {
+		for (int y = 0; y < ih; ++y) {
+			Color c = input.GetPixel(x, y);
+			if (!(c == WHITE)) {
+				Offset o = offset.GetPixel(x % ow, y & oh);
+				xy = std::make_pair((x + o.dx) % hw, (y + o.dy) % hh);
+				const BUCKET *bucket = &temp_data[xy.first * hw + xy.second];
+				assert(bucket->size() == 1);
+				hash_data.SetPixel(xy.first, xy.second, *bucket->begin());
+			}
+		}
+	}
 }
 
 static void
@@ -91,6 +128,7 @@ Compress(
 	int h, w, p = 0;
 	w = input.Width();
 	h = input.Height();
+	/* Set all occupancy pixels */
 	occupancy.Allocate(w, h);
 	for (int x = 0; x < w; ++x) {
 		for (int y = 0; y < h; ++y) {
@@ -99,45 +137,45 @@ Compress(
 			p += not_white; // FIXME bad?
 		}
 	}
-	/* Construct offset, perhaps repeatedly */
-	int s_hash, s_offset;
+	/* These are some simple constraints */
+	int s_hash, s_offset, size = w * h;
 	s_hash = (int) ceil(sqrt((double) p * 1.01));
 	s_offset = (int) ceil(sqrt((double) p) / 2.0);
-	BUCKET *colors; std::pair<int, int> max;
+	/* These will contain intermediate data */
+	std::pair<int, int> max;
+	BUCKET *colors = NULL;
+	/* Repeatedly attempt to find a perfect hash-function */
 	while (true) {
+		/* Create a blank offset of the given size */
 		offset.Allocate(s_offset, s_offset);
 		offset.SetAllPixels(ZERO);
-		if (!(s_hash * s_hash < h * w)) {
+		/* If compression grows larger than the source, fail */
+		if (s_hash < s_offset || size < SQ(s_hash) || size < SQ(s_offset)) {
 			std::cerr << "No perfect hash-function exists!" << std::endl;
-			delete[] colors;
+			Reset(colors);
 			return;
 		}
-		/* Attempt to perform a hash using this offset table */
-		colors = new BUCKET[s_hash * s_hash];
-		// TODO use max to incement the offset position
-		/* Collisions will cause us to rehash */
-		if (TryCompress(input, offset, s_offset, s_hash, colors, max)) {
-			delete[] colors;
-			s_offset += 1;
-			s_hash += 1;
-		} else {
-			break;
-		}
-	}
-	/* Set the pixels to their final state */
-	hash_data.Allocate(s_hash, s_hash);
-	hash_data.SetAllPixels(WHITE);
-	for (int x = 0; x < w; ++x) {
-		for (int y = 0; y < h; ++y) {
-			Color c = input.GetPixel(x, y);
-			if (!(c == WHITE)) {
-				BUCKET *bucket = &colors[x * s_hash + y];
-				assert(bucket->size() == 1);
-				hash_data.SetPixel(x % s_hash, y % s_hash, *bucket->begin());
+		/* Try all offset values to locate a collision-free hash */
+		for (int i = 0; i < s_offset; ++i) {
+			for (int j = 0; j < s_offset; ++j) {
+				Reset(colors, new BUCKET[SQ(s_hash)]);
+				/* Attempt to perform a hash using the current offsets */
+				if (Try(input, offset, colors, s_hash, max)) {
+					// TODO use max to incement the offset positions
+					offset.SetAllPixels(Offset(i, j));
+					offset.SetPixel(max.first, max.second, ZERO);
+				} else {
+					hash_data.Allocate(s_hash, s_hash);
+					hash_data.SetAllPixels(WHITE);
+					Fill(input, offset, colors, hash_data);
+					return;
+				}
 			}
 		}
+		/* Rehash with larger offset */
+		++s_offset;
+		//++s_hash; // FIXME and hash?
 	}
-	delete[] colors;
 }
 
 static void
@@ -157,6 +195,7 @@ UnCompress(
 	oh = offset.Height();
 	/* Set output pixels */
 	output.Allocate(w, h);
+	output.SetAllPixels(WHITE);
 	for (int x = 0; x < w; ++x) {
 		for (int y = 0; y < h; ++y) {
 			if (occupancy.GetPixel(x, y)) {
