@@ -164,10 +164,12 @@ Compress(
 				Reset(colors, new BUCKET[SQ(s_hash)]);
 				/* Attempt to perform a hash using the current offsets */
 				if (Try(input, offset, colors, s_hash, max)) {
-					// TODO use max to incement the offset positions
+					if (i == 0 && j == 0) continue;
 					offset.SetAllPixels(Offset(i, j));
+					// TODO use max to just increment the offset positions
 					offset.SetPixel(max.first, max.second, ZERO);
 				} else {
+					// TODO are we really done?
 					hash_data.Allocate(s_hash, s_hash);
 					hash_data.SetAllPixels(WHITE);
 					Fill(input, offset, colors, hash_data);
