@@ -107,10 +107,11 @@ Fill(
 		for (int y = 0; y < ih; ++y) {
 			Color c = input.GetPixel(x, y);
 			if (!(c == WHITE)) {
-				Offset o = offset.GetPixel(x % ow, y & oh);
+				Offset o = offset.GetPixel(x % ow, y % oh);
 				xy = std::make_pair((x + o.dx) % hw, (y + o.dy) % hh);
 				const BUCKET *bucket = &temp_data[xy.first * hw + xy.second];
 				assert(bucket->size() == 1);
+				//Color c = bucket->empty() ? WHITE : *bucket->begin();
 				hash_data.SetPixel(xy.first, xy.second, *bucket->begin());
 			}
 		}
