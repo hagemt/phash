@@ -153,6 +153,8 @@ Compress(
 		/* If compression grows larger than the source, fail */
 		if (s_hash < s_offset || size < SQ(s_hash) || size < SQ(s_offset)) {
 			std::cerr << "No perfect hash-function exists!" << std::endl;
+			hash_data.Allocate(s_hash, s_hash);
+			hash_data.SetAllPixels(WHITE);
 			Reset(colors);
 			return;
 		}
