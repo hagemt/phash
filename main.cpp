@@ -237,9 +237,9 @@ Compare(
 			for (int j = 0; j < i1h; j++) {
 				Color c1 = input1.GetPixel(i, j);
 				Color c2 = input2.GetPixel(i, j);
-				bool match = (c1 == c2);
-				count += match; // FIXME bad?
-				output.SetPixel(i, j, match);
+				bool mismatch = !(c1 == c2);
+				count += mismatch; // FIXME bad?
+				output.SetPixel(i, j, mismatch);
 			}
 		}
 		// inform the user of the results
